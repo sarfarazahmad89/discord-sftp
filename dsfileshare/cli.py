@@ -15,11 +15,12 @@ from discord.ext import tasks
 PASSLEN = 10
 PORT = 2200
 DISCORD_STATUS_PING_SEC = 10
-DISCORD_TOKEN = 'MTEyNzE1MzgwNjcxOTg0NDM3Mw.GB2uCV.lX9WTJ5ZneGFl1PUlKYDqCxl_TaWF3FeQ8bls8'
-CHANNEL_NAME = 'general'
+DISCORD_TOKEN = "MTEyNzE1MzgwNjcxOTg0NDM3Mw.GB2uCV.lX9WTJ5ZneGFl1PUlKYDqCxl_TaWF3FeQ8bls8"
+CHANNEL_NAME = "general"
 
 
 logger = logging.getLogger(__name__)
+
 
 class DiscordClient(discord.Client):
     def __init__(self, config_msg, *args, **kwargs):
@@ -31,7 +32,7 @@ class DiscordClient(discord.Client):
         self.status_ping.start()
 
     async def on_ready(self):
-        logger.info(f'successfully logged into discord as {self.user}')
+        logger.info(f"successfully logged into discord as {self.user}")
 
     @tasks.loop(seconds=DISCORD_STATUS_PING_SEC)
     async def status_ping(self):
@@ -40,7 +41,7 @@ class DiscordClient(discord.Client):
         if not self.channel_id:
             for server in self.guilds:
                 for channel in server.channels:
-                    if str(channel.type) == 'text' and str(channel.name) == CHANNEL_NAME:
+                    if str(channel.type) == "text" and str(channel.name) == CHANNEL_NAME:
                         self.channel_id = channel.id
 
         channel = self.get_channel(self.channel_id)
@@ -49,9 +50,10 @@ class DiscordClient(discord.Client):
         await channel.send(self.config_msg)
 
 
-
 def setup_logging(loglevel=logging.INFO):
-    formatter = ColoredFormatter(" %(log_color)s%(asctime)s | %(log_color)s%(name)s |  %(log_color)s%(levelname)-8s%(reset)s | %(log_color)s%(message)s%(reset)s")
+    formatter = ColoredFormatter(
+        " %(log_color)s%(asctime)s | %(log_color)s%(name)s |  %(log_color)s%(levelname)-8s%(reset)s | %(log_color)s%(message)s%(reset)s"
+    )
     stream = logging.StreamHandler()
     stream.setLevel(logging.DEBUG)
     stream.setFormatter(formatter)
@@ -71,16 +73,15 @@ def main():
     setup_logging()
 
     username, passwd = get_creds()
-    logger.info('generated creds : {}/{} '.format(username, passwd))
+    logger.info("generated creds : {}/{} ".format(username, passwd))
 
     with UPNPForward(tcpport=PORT) as u:
         logger.info("public ipaddress is : {}".format(u.public_ipaddr))
-        running_config = {'username': username, 'password': passwd, 'ip': u.public_ipaddr, 'port': PORT}
+        running_config = {"username": username, "password": passwd, "ip": u.public_ipaddr, "port": PORT}
 
         client = DiscordClient(intents=discord.Intents.default(), config_msg=running_config)
         discord_thread = threading.Thread(target=client.run, args=(DISCORD_TOKEN,), daemon=True)
         discord_thread.start()
-
 
         # Advertise the details on discord.
         while True:
@@ -88,7 +89,6 @@ def main():
             time.sleep(10)
 
         # TODO: Start SSHD server.
-        
 
 
 if __name__ == "__main__":

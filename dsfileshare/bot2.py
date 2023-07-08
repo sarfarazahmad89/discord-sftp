@@ -1,7 +1,8 @@
 import discord
 import asyncio
 
-token = 'MTEyNzE1MzgwNjcxOTg0NDM3Mw.GB2uCV.lX9WTJ5ZneGFl1PUlKYDqCxl_TaWF3FeQ8bls8'
+token = "MTEyNzE1MzgwNjcxOTg0NDM3Mw.GB2uCV.lX9WTJ5ZneGFl1PUlKYDqCxl_TaWF3FeQ8bls8"
+
 
 class MyClient(discord.Client):
     def __init__(self, *args, **kwargs):
@@ -12,8 +13,8 @@ class MyClient(discord.Client):
         self.bg_task = self.loop.create_task(self.my_background_task())
 
     async def on_ready(self):
-        print(f'Logged in as {self.user} (ID: {self.user.id})')
-        print('------')
+        print(f"Logged in as {self.user} (ID: {self.user.id})")
+        print("------")
 
     async def my_background_task(self):
         await self.wait_until_ready()

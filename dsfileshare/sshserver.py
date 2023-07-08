@@ -8,11 +8,12 @@ import threading
 
 from base64 import decodebytes
 from binascii import hexlify
-from paramiko.util import b,u
+from paramiko.util import b, u
 
 
 host_key = paramiko.RSAKey.generate(2048)
 print("HostKeyFprint: " + u(hexlify(host_key.get_fingerprint())))
+
 
 class Server(paramiko.ServerInterface):
     def __init__(self):
@@ -27,7 +28,6 @@ class Server(paramiko.ServerInterface):
         if (username == "robey") and (password == "foo"):
             return paramiko.AUTH_SUCCESSFUL
         return paramiko.AUTH_FAILED
-
 
     def enable_auth_gssapi(self):
         return False
@@ -88,9 +88,7 @@ try:
         sys.exit(1)
 
     chan.send("\r\n\r\nWelcome to my dorky little BBS!\r\n\r\n")
-    chan.send(
-        "We are on fire all the time!  Hooray!  Candy corn for everyone!\r\n"
-    )
+    chan.send("We are on fire all the time!  Hooray!  Candy corn for everyone!\r\n")
     chan.send("Happy birthday to Robot Dave!\r\n\r\n")
     chan.send("Username: ")
     f = chan.makefile("rU")
@@ -106,4 +104,3 @@ except Exception as e:
     except:
         pass
     sys.exit(1)
-
