@@ -11,11 +11,13 @@ import argparse
 from colorlog import ColoredFormatter
 from dsfileshare.upnp import UPNPForward
 from discord.ext import tasks
+from dsfileshare import sshserver
+from multiprocessing import Process
 
 PASSLEN = 10
 PORT = 2200
 DISCORD_STATUS_PING_SEC = 10
-DISCORD_TOKEN = "MTEyNzE1MzgwNjcxOTg0NDM3Mw.GB2uCV.lX9WTJ5ZneGFl1PUlKYDqCxl_TaWF3FeQ8bls8"
+DISCORD_TOKEN = ""
 CHANNEL_NAME = "general"
 
 
@@ -52,7 +54,7 @@ class DiscordClient(discord.Client):
 
 def setup_logging(loglevel=logging.INFO):
     formatter = ColoredFormatter(
-        " %(log_color)s%(asctime)s | %(log_color)s%(name)s |  %(log_color)s%(levelname)-8s%(reset)s | %(log_color)s%(message)s%(reset)s"
+        "%(log_color)s%(asctime)s | %(log_color)s%(name)s |  %(log_color)s%(levelname)-8s%(reset)s | %(log_color)s%(message)s%(reset)s"
     )
     stream = logging.StreamHandler()
     stream.setLevel(logging.DEBUG)
@@ -83,12 +85,14 @@ def main():
         discord_thread = threading.Thread(target=client.run, args=(DISCORD_TOKEN,), daemon=True)
         discord_thread.start()
 
-        # Advertise the details on discord.
-        while True:
-            print("Hello from main loop!")
-            time.sleep(10)
+        ssh_server_thread = threading.Thread(
+            target=sshserver.start_ssh_server, args=(username, passwd, PORT), daemon=True
+        )
+        ssh_server_thread.start()
 
-        # TODO: Start SSHD server.
+        while True:
+            logger.info("Hello from main loop!")
+            time.sleep(10)
 
 
 if __name__ == "__main__":

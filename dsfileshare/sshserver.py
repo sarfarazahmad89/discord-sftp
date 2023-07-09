@@ -5,19 +5,23 @@ import sys
 import socket
 import traceback
 import threading
+import logging
 
 from base64 import decodebytes
 from binascii import hexlify
 from paramiko.util import b, u
 
+logger = logging.getLogger(__name__)
 
 host_key = paramiko.RSAKey.generate(2048)
-print("HostKeyFprint: " + u(hexlify(host_key.get_fingerprint())))
+logger.info("HostKeyFprint: {}".format(u(hexlify(host_key.get_fingerprint()))))
 
 
 class Server(paramiko.ServerInterface):
-    def __init__(self):
+    def __init__(self, username, password):
         self.event = threading.Event()
+        self.username = username
+        self.password = password
 
     def check_channel_request(self, kind, chanid):
         if kind == "session":
@@ -25,7 +29,7 @@ class Server(paramiko.ServerInterface):
         return paramiko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
 
     def check_auth_password(self, username, password):
-        if (username == "robey") and (password == "foo"):
+        if (username == self.username) and (password == self.password):
             return paramiko.AUTH_SUCCESSFUL
         return paramiko.AUTH_FAILED
 
@@ -39,68 +43,81 @@ class Server(paramiko.ServerInterface):
         self.event.set()
         return True
 
-
-try:
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sock.bind(("", 2200))
-except Exception as e:
-    print("Failed to bind on port 2200")
-    traceback.print_exc()
-    sys.exit(1)
-
-try:
-    sock.listen(100)
-    print("Listening for connection ...")
-    client, addr = sock.accept()
-except Exception as e:
-    print("*** Listen/accept failed: " + str(e))
-    traceback.print_exc()
-    sys.exit(1)
+    def check_channel_pty_request(self, channel, term, width, height, pixelwidth, pixelheight, modes):
+        return True
 
 
-try:
-    t = paramiko.Transport(client, gss_kex=False)
-    t.set_gss_host(socket.getfqdn(""))
+def start_ssh_server(username, password, port=2200):
     try:
-        t.load_server_moduli()
-    except:
-        print("(Failed to load moduli -- gex will be unsupported.)")
-        raise
-    t.add_server_key(host_key)
-    server = Server()
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(("", port))
+    except Exception as e:
+        logger.error(f"failed to bind on port {port}")
+        traceback.print_exc()
+        return
+
     try:
-        t.start_server(server=server)
-    except paramiko.SSHException:
-        print("*** SSH negotiation failed.")
-        sys.exit(1)
+        sock.listen(100)
+        logger.info("listening for connection ...")
+        while True:
+            conn, addr = sock.accept()
+            logger.info("Received connection from {}".format(addr))
+            t = threading.Thread(target=process_connection, args=(conn, addr, username, password), daemon=True)
+            t.start()
+    except Exception as e:
+        logger.error("*** listen/accept failed: " + str(e))
+        traceback.print_exc()
 
-    # wait for auth
-    chan = t.accept(20)
-    if chan is None:
-        print("*** No channel.")
-        sys.exit(1)
-    print("Authenticated!")
 
-    server.event.wait(10)
-    if not server.event.is_set():
-        print("*** Client never asked for a shell.")
-        sys.exit(1)
-
-    chan.send("\r\n\r\nWelcome to my dorky little BBS!\r\n\r\n")
-    chan.send("We are on fire all the time!  Hooray!  Candy corn for everyone!\r\n")
-    chan.send("Happy birthday to Robot Dave!\r\n\r\n")
-    chan.send("Username: ")
-    f = chan.makefile("rU")
-    username = f.readline().strip("\r\n")
-    chan.send("\r\nI don't like you, " + username + ".\r\n")
-    chan.close()
-
-except Exception as e:
-    print("*** Caught exception: " + str(e.__class__) + ": " + str(e))
-    traceback.print_exc()
+def process_connection(conn, addr, username, password):
     try:
-        t.close()
-    except:
-        pass
-    sys.exit(1)
+        t = paramiko.Transport(conn, gss_kex=False)
+        t.set_gss_host(socket.getfqdn(""))
+        try:
+            t.load_server_moduli()
+        except:
+            logger.warning("(Failed to load moduli -- gex will be unsupported.)")
+            raise
+
+        t.add_server_key(host_key)
+        server = Server(username=username, password=password)
+
+        try:
+            t.start_server(server=server)
+        except paramiko.SSHException:
+            logger.error("*** SSH negotiation failed.")
+
+        # wait for auth
+        chan = t.accept(20)
+        if chan is None:
+            logger.warning("*** No channel was requested by the client.")
+            return
+        logger.info("client authenticated successfully !")
+
+        server.event.wait(10)
+        if not server.event.is_set():
+            logger.error("*** Client never asked for a shell.")
+            return
+        chan.send("\r\n\r\nWelcome to my dsfileshare service !!\r\n\r\n")
+
+    except Exception as e:
+        logger.error("*** Caught exception: " + str(e.__class__))
+        traceback.print_exc()
+
+    finally:
+        logger.info("Closing channel and transport for {}".format(addr))
+        try:
+            chan.close()
+            t.close()
+        except:
+            pass
+
+
+def main():
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", handlers=[logging.StreamHandler()])
+    start_ssh_server("dummy", "dummy", 2200)
+
+
+if __name__ == "__main__":
+    main()
