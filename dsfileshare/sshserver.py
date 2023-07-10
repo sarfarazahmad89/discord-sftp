@@ -10,6 +10,8 @@ import logging
 from base64 import decodebytes
 from binascii import hexlify
 from paramiko.util import b, u
+import dsfileshare
+from dsfileshare.sftp import DSSFTPServerReadOnly
 
 logger = logging.getLogger(__name__)
 
@@ -81,25 +83,13 @@ def process_connection(conn, addr, username, password):
             raise
 
         t.add_server_key(host_key)
+        t.set_subsystem_handler("sftp", paramiko.SFTPServer, DSSFTPServerReadOnly)
         server = Server(username=username, password=password)
 
         try:
             t.start_server(server=server)
         except paramiko.SSHException:
             logger.error("*** SSH negotiation failed.")
-
-        # wait for auth
-        chan = t.accept(20)
-        if chan is None:
-            logger.warning("*** No channel was requested by the client.")
-            return
-        logger.info("client authenticated successfully !")
-
-        server.event.wait(10)
-        if not server.event.is_set():
-            logger.error("*** Client never asked for a shell.")
-            return
-        chan.send("\r\n\r\nWelcome to my dsfileshare service !!\r\n\r\n")
 
     except Exception as e:
         logger.error("*** Caught exception: " + str(e.__class__))
