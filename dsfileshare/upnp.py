@@ -12,7 +12,7 @@ class UPNPForward:
         self.public_ipaddr = None
 
     def __enter__(self):
-        cmd = "upnpc -r {} tcp".format(self.tcpport)
+        cmd = "upnpc -i -r {} tcp".format(self.tcpport)
         logger.info("executing command {}".format(cmd.split()))
         cmd_result = subprocess.run(cmd.split(), capture_output=True)
         logger.debug("OUTPUT: {}".format(cmd_result.stdout.decode("ascii")))
@@ -26,7 +26,7 @@ class UPNPForward:
         return self
 
     def __exit__(self, type, value, traceback):
-        cmd = "upnpc -d {} tcp".format(self.tcpport)
+        cmd = "upnpc -i -d {} tcp".format(self.tcpport)
         logger.info("executing command {}".format(cmd.split()))
         cmd_result = subprocess.run(cmd.split(), capture_output=True)
         logger.debug("OUTPUT: {}".format(cmd_result.stdout.decode("ascii")))
