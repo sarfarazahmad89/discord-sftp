@@ -301,6 +301,16 @@ def main():
                     self.sftp_conn.get(remote_file, remote_file)
                     print(f"{remote_file} downloaded successfully!")
 
+                def do_cd(self, remote_dir):
+                    self.sftp_conn.chdir(remote_dir)
+
+                def complete_get(self, text, line, start_index, end_index):
+                    files = self.sftp_conn.listdir(".")
+                    if text:
+                        return [file for file in files if file.startswith(text)]
+                    else:
+                        return list(files)
+
             TopLevelCmd().cmdloop()
 
 
