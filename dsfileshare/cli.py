@@ -125,6 +125,14 @@ def read_discord_token(tokenfile):
         logger.error("Discord token file not found. Quitting!!")
         raise
 
+def _strip_quotes(string):
+    if string.startswith('"'):
+        return string.lstrip('"').rstrip('"')
+    elif string.startswith('\''):
+        return string.lstrip('\'').rstrip('\'')
+    else:
+        return string
+
 
 def get_creds():
     username = USERNAME
@@ -226,12 +234,14 @@ def main():
                     self.ssh_c = paramiko.SSHClient()
                     self.ssh_c.set_missing_host_key_policy(AutoAddPolicy)
 
+
                 def do_list_peers(self, args):
                     """list active discord-sftp peers"""
                     output = [["server", "lastseen", "config"]]
                     for server, msg in client.live_servers.items():
                         output.append([server, str(msg["timestamp"]), str(msg)])
                     print(tabulate(output, headers="firstrow"))
+
 
                 def do_connect(self, peer):
                     """connect to one of the active peer (from list_peers)"""
@@ -274,6 +284,7 @@ def main():
                 def emptyline(self):
                     return
 
+
             class SFTPClientCmd(cmd.Cmd):
                 @property
                 def prompt(self):
@@ -301,7 +312,8 @@ def main():
 
 
                 def do_get(self, remote_file):
-                    remote_file = remote_file.strip('\'')
+                    remote_file = _strip_quotes(remote_file)
+                    print(remote_file)
                     try:
                         self.sftp_conn.get(remote_file, remote_file)
                         print(f"{remote_file} downloaded successfully!")
@@ -317,12 +329,17 @@ def main():
 
 
                 def do_cd(self, remote_dir):
-                    self.sftp_conn.chdir('.')
-                    cwd = os.path.join(self.sftp_conn.getcwd(), remote_dir.strip('\''))
+                    remote_dir = _strip_quotes(remote_dir)
+                    cwd = self.sftp_conn.getcwd()
+                    if not cwd:
+                        dir_to_cd = os.path.join("/", remote_dir)
+                    else:
+                        dir_to_cd = os.path.join(cwd, remote_dir)
+
                     try:
-                        self.sftp_conn.chdir(cwd)
+                        self.sftp_conn.chdir(dir_to_cd)
                     except Exception:
-                        print(f'Directory does not exist {cwd}')
+                        print(f'Directory does not exist {dir_to_cd}')
 
                 def complete_get(self, text, line, start_index, end_index):
                     files = self.sftp_conn.listdir(".")
