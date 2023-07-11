@@ -1,4 +1,4 @@
-ifrom setuptools import setup
+from setuptools import setup
 setup(name='discord.sftp',
       version='0.1',
       description=("Interactive file transfers using sftp, upnpc and discord for discovery"),
