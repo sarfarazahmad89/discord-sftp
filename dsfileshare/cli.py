@@ -11,6 +11,8 @@ import threading
 import time
 import json
 import argparse
+import cmd
+import paramiko
 from tabulate import tabulate
 
 from datetime import datetime, timedelta
@@ -21,9 +23,9 @@ from logging.handlers import RotatingFileHandler
 from discord.ext import tasks
 from pathlib import Path
 from dsfileshare import sshserver
+from multiprocessing import Process
 
-from prompt_toolkit import prompt
-from prompt_toolkit.completion import WordCompleter
+from paramiko.client import SSHClient, AutoAddPolicy
 
 
 PASSLEN = 10
@@ -79,7 +81,7 @@ class DiscordClient(discord.Client):
         broadcast_messages = []
         messages_after = datetime.now() - timedelta(seconds=180)
         async for message in self.channel.history(after=messages_after):
-            r = re.match(rf"{SERVER_MSG_PREFIX}\s(.*)", message.content)
+            r = re.match(f"{SERVER_MSG_PREFIX}\s(.*)", message.content)
             if r:
                 config = r.groups()[0]
                 conf = json.loads(config)
@@ -119,8 +121,8 @@ def read_discord_token(tokenfile):
         with open(tokenfile, "r") as tokenfd:
             token = tokenfd.read()
         return token
-    except FileNotFoundError:
-        logger.exception("Discord token file not found. Quitting!!")
+    except FileNotFoundError as e:
+        logger.error("Discord token file not found. Quitting!!")
         raise
 
 
@@ -212,12 +214,65 @@ def main():
 
             signal.signal(signal.SIGINT, signal_handler)
 
-            # Start the interactive shell
-            logger.info("Starting interactive shell now !")
+            class TopLevelCmd(cmd.Cmd):
+                intro = "Welcome to discord-sftp client! You can list other active peers here and transfer files over the internet using sftp"
+                prompt = ">> "
 
-            while True:
-                print("Hello from main thread!!")
-                time.sleep(10)
+                def do_list_peers(self, args):
+                    """list active discord-sftp peers"""
+                    output = [["server", "lastseen"]]
+                    for server, msg in client.live_servers.items():
+                        output.append([server, str(msg["timestamp"])])
+                    print(tabulate(output, headers="firstrow"))
+
+                def do_connect(self, peer):
+                    """connect to one of the active peer (from list_peers)"""
+
+                    print(f"Will connect to {peer}")
+                    sftp_cmd = SFTPClientCmd(peer)
+                    sftp_cmd.cmdloop()
+
+                def complete_connect(self, text, line, start_index, end_index):
+                    if text:
+                        return [server for server in client.live_servers.keys() if server.startswith(text)]
+                    else:
+                        return list(client.live_servers.keys())
+
+                def do_exit(self, peer):
+                    """exit the program"""
+                    sys.exit(0)
+                    return
+
+            class SFTPClientCmd(cmd.Cmd):
+                @property
+                def prompt(self):
+                    if self.sftp_conn:
+                        return f"(connected - {self.server}) >> "
+
+                def __init__(self, server, *args, **kwargs):
+                    super().__init__(*args, **kwargs)
+                    self.server = server
+                    self.server_config = client.live_servers[server]
+                    self.ssh_c = paramiko.SSHClient()
+                    self.ssh_c.set_missing_host_key_policy(AutoAddPolicy)
+                    self.ssh_c.connect(
+                        self.server_config["ip"],
+                        self.server_config["port"],
+                        username=self.server_config["username"],
+                        password=self.server_config["password"],
+                    )
+                    self.sftp_conn = self.ssh_c.open_sftp()
+
+                def do_ls(self, args):
+                    listing = self.sftp_conn.listdir(".")
+                    print(listing)
+
+                def do_disconnect(self, args):
+                    self.sftp_conn.close()
+                    self.ssh_c.close()
+                    return True
+
+            TopLevelCmd().cmdloop()
 
 
 if __name__ == "__main__":
