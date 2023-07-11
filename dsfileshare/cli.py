@@ -285,6 +285,7 @@ def main():
                     self.server = server
                     self.sftp_conn = sftp_conn
 
+
                 def do_ls(self, args):
                     try:
                         listing = self.sftp_conn.listdir(".")
@@ -292,17 +293,35 @@ def main():
                     except Exception:
                         print("Error listing files")
 
+
                 def do_disconnect(self, args):
                     self.sftp_conn.close()
                     self.ssh_c.close()
                     return True
 
+
                 def do_get(self, remote_file):
-                    self.sftp_conn.get(remote_file, remote_file)
-                    print(f"{remote_file} downloaded successfully!")
+                    try:
+                        self.sftp_conn.get(remote_file, f'{remote_file}.d')
+                        print(f"{remote_file} downloaded successfully!")
+                    except Exception:
+                        print(f"Err - {remote_file} : incorrect filename or file no longer exists")
+
+
+                def do_pwd(self, *args):
+                    cwd = self.sftp_conn.getcwd()
+                    if not cwd:
+                        print("/")
+                    print(cwd)
+
 
                 def do_cd(self, remote_dir):
-                    self.sftp_conn.chdir(remote_dir)
+                    self.sftp_conn.chdir('.')
+                    cwd = os.path.join(self.sftp_conn.getcwd(), remote_dir.strip('\''))
+                    try:
+                        self.sftp_conn.chdir(cwd)
+                    except Exception:
+                        print(f'Directory does not exist {cwd}')
 
                 def complete_get(self, text, line, start_index, end_index):
                     files = self.sftp_conn.listdir(".")
