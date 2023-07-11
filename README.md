@@ -1,31 +1,38 @@
-** SERVER STARTUP **
+# discord-sftp
+discord-sftp enables members of a discord channel to exchange file among themselves over SFTP protocol. The idea is UPnP forwards the built-in SFTP server onto the internet, a built-in discord bot published the required details to connect to the previously forwarded service on a specific discord channel. The discord bot and the sftp service are run as background threads while an sftp client is spun in the foreground to connect to other copies of discord-sftp that might be publishing to the same discord channel. So client and the server are built into one.
 
-1. sshd on 2222
-2. upnpc program
-3. authentication.
+## highlights/breakdown.
+- UPnP to forward built-in SFTP server onto the internet.
+- Discord (bot): discord is used a broadcast/service discovery mechanism on the internet.
+- Built-in SFTP server: built-in sftp server using paramiko. only shares the directory where the cli is invoked from.
+- Built-in SFTP client: Client that discovers other copies of this software run by the members of the channel.
 
+### requirements
+- See [setup.py](/setup.py) for dependencies.
+- You need to configure a discord bot that can read and publish messages on a specific text channel.
+- Hopefully UPnP forwarding is enabled in your router and goes all the way through to the internet.
 
-BOT.
+### limitations
+It is pretty much a hack/a proof of concept and solves my purposes. It is not very robust at the moment.
+ 
+### installing
+1. Clone the git repo.
+2. Run pip install
+```
+git clone https://github.com/sarfarazahmad89/discord-sftp
+pip install discord-sftp
+```
 
-1. Will create a random password and use the launching user.
-  * ahmad / randompass
-
-2. It will start `sshd` with the username and pass from (1).
-   and port 2200.
-
-3. Run `upnpc` command to forward the port to internet. 
-
-4. Get the public ip from output of `upnpc` command in (3).
-
-5. What details do we have now?
-  * Username.
-  * Password.
-  * Public IP.
-  * Port.
-  * Time.
-
-6. Discord bot publishes details from (5) on discord channel.
-
-# TODO : add a switch for debug logs
-# TODO : Use a dataclass for running config
+## usage
+- The client offers following interactive commands,
+```
+Use the available commands to interact with the application:
+   - `list_peers`: List active Discord-SFTP peers.
+   - `connect [peer]`: Connect to a specific peer for file transfer.
+   - `ls`: List files in the connected peer's directory.
+   - `cd [directory]`: Change the current directory on the connected peer.
+   - `get [file]`: Download a file from the connected peer.
+   - `pwd`: Print the current directory on the connected peer.
+   - `disconnect`: Disconnect from the connected peer.
+   - `exit`: Exit the application.```
 
