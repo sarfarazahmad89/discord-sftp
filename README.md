@@ -1,5 +1,5 @@
 # discord-sftp
-discord-sftp enables members of a discord channel to exchange file among themselves over SFTP protocol. The idea is UPnP forwards the built-in SFTP server onto the internet, a built-in discord bot published the required details to connect to the previously forwarded service on a specific discord channel. The discord bot and the sftp service are run as background threads while an sftp client is spun in the foreground to connect to other copies of discord-sftp that might be publishing to the same discord channel. So client and the server are built into one.
+discord-sftp enables members of a discord channel to exchange file among themselves over SFTP protocol. The idea is to have UPnP forward the built-in SFTP server onto the internet, a built-in discord bot publishes the details required to connect to the previously forwarded service on a specific discord channel. The discord bot and the sftp service are run as background threads while an sftp client is spun in the foreground to connect to other instances of this discord-sftp that might be running on other computers across the internet (say your friends) and publishing to the same discord channel. Client and server(s) are baked into one executable for the moment.
 
 ## highlights/breakdown.
 - UPnP to forward built-in SFTP server onto the internet.
