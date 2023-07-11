@@ -6,7 +6,7 @@ setup(name='dsfileshare',
       author_email='sarfaraz.ahmad@live.in',
       license='MIT',
       packages=['dsfileshare'],
-      install_requires=['discord.py', 'paramiko', 'colorlog'],
+      install_requires=['discord.py', 'paramiko', 'colorlog', 'tabulate'],
       zip_safe=False,
       entry_points='''
         [console_scripts]

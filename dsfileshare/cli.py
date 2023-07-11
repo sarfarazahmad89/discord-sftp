@@ -1,27 +1,49 @@
 #!/usr/bin/env python
 import os
 import sys
+import getpass
+import re
 import secrets
 import logging
 import discord
 import signal
 import threading
 import time
+import json
 import argparse
+from tabulate import tabulate
 
+from datetime import datetime, timedelta
 from colorlog import ColoredFormatter
+from dataclasses import dataclass
 from dsfileshare.upnp import UPNPForward
 from logging.handlers import RotatingFileHandler
 from discord.ext import tasks
 from pathlib import Path
 from dsfileshare import sshserver
-from multiprocessing import Process
+
+from prompt_toolkit import prompt
+from prompt_toolkit.completion import WordCompleter
+
 
 PASSLEN = 10
 USERNAME = "dsfileshare"
 DISCORD_STATUS_PING_SEC = 30
+SERVER_MSG_PREFIX = "dsfileshare-hello"
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class RemoteServer:
+    instance: str
+    username: str
+    password: str
+    port: int
+    ip: str
+
+    def __hash__(self):
+        return hash(self.instance)
 
 
 class DiscordClient(discord.Client):
@@ -30,6 +52,7 @@ class DiscordClient(discord.Client):
         self.config_msg = config_msg
         self.channel_name = channel_name
         self.channel = None
+        self.live_servers = {}
 
     async def on_ready(self):
         logger.info(f"successfully logged into discord as {self.user}")
@@ -44,10 +67,36 @@ class DiscordClient(discord.Client):
             )
             return
         self.status_ping.start()
+        self.get_live_servers.start()
 
     @tasks.loop(seconds=DISCORD_STATUS_PING_SEC)
     async def status_ping(self):
         await self.channel.send(self.config_msg)
+
+    @tasks.loop(seconds=10)
+    async def get_live_servers(self):
+        live_server_map = {}
+        broadcast_messages = []
+        messages_after = datetime.now() - timedelta(seconds=180)
+        async for message in self.channel.history(after=messages_after):
+            r = re.match(rf"{SERVER_MSG_PREFIX}\s(.*)", message.content)
+            if r:
+                config = r.groups()[0]
+                conf = json.loads(config)
+                conf["timestamp"] = message.created_at
+                broadcast_messages.append(conf)
+
+        for msg in broadcast_messages:
+            if msg["instance"] not in live_server_map:
+                live_server_map[msg["instance"]] = []
+            live_server_map[msg["instance"]].append(msg)
+
+        latest_servers = {}
+        for server, msgs in live_server_map.items():
+            latest = sorted(msgs, key=lambda x: x["timestamp"], reverse=True)[0]
+            latest_servers[server] = latest
+
+        self.live_servers = latest_servers
 
 
 def setup_logging(logfile=None, loglevel=logging.INFO):
@@ -61,7 +110,6 @@ def setup_logging(logfile=None, loglevel=logging.INFO):
         logging.root.addHandler(handler)
     else:
         stream = logging.StreamHandler()
-        stream.setLevel(logging.DEBUG)
         stream.setFormatter(formatter)
         logging.root.addHandler(stream)
 
@@ -71,8 +119,8 @@ def read_discord_token(tokenfile):
         with open(tokenfile, "r") as tokenfd:
             token = tokenfd.read()
         return token
-    except FileNotFoundError as e:
-        logger.error("Discord token file not found. Quitting!!")
+    except FileNotFoundError:
+        logger.exception("Discord token file not found. Quitting!!")
         raise
 
 
@@ -103,55 +151,73 @@ def main():
     )
     parser.add_argument("--port", "-p", help="the tcp port to start built-in sshd on", default=2200, type=int)
     parser.add_argument("--debug", "-d", help="log debug messages", dest="debuglogs", action="store_true")
+    parser.add_argument(
+        "--clientonly",
+        help="only run the client, do not run the internal sftpserver or publish messages on discord",
+        dest="clientonly",
+        action="store_true",
+    )
     args = parser.parse_args()
 
-    discord_token = read_discord_token(args.tokenfile).strip()
-
     running_config = {}
-
+    discord_token = read_discord_token(args.tokenfile).strip()
     if args.debuglogs:
         setup_logging(args.logfile, logging.DEBUG)
     else:
         setup_logging(args.logfile, logging.INFO)
+    args = parser.parse_args()
 
     username, passwd = get_creds()
     logger.info("generated creds : {}/{} ".format(username, passwd))
 
-    with UPNPForward(tcpport=args.port) as u:
-        logger.info("public ipaddress is : {}".format(u.public_ipaddr))
-        running_config = {"username": username, "password": passwd, "ip": u.public_ipaddr, "port": args.port}
+    if not args.clientonly:
+        with UPNPForward(tcpport=args.port) as u:
+            logger.info("public ipaddress is : {}".format(u.public_ipaddr))
+            running_config = {
+                "username": username,
+                "password": passwd,
+                "ip": u.public_ipaddr,
+                "port": args.port,
+                "instance": getpass.getuser(),
+            }
+            status_msg = f"{SERVER_MSG_PREFIX} {json.dumps(running_config)}"
 
-        client = DiscordClient(
-            intents=discord.Intents.default(), config_msg=running_config, channel_name=args.dschannel
-        )
-        discord_thread = threading.Thread(
-            target=client.run,
-            args=(discord_token,),
-            kwargs={
-                "log_handler": None,
-            },
-            daemon=True,
-        )
-        discord_thread.start()
+            intents = discord.Intents.default()
+            intents.message_content = True
+            client = DiscordClient(intents=intents, config_msg=status_msg, channel_name=args.dschannel)
+            discord_thread = threading.Thread(
+                target=client.run,
+                args=(discord_token,),
+                kwargs={
+                    "log_handler": None,
+                },
+                daemon=True,
+            )
+            discord_thread.start()
 
-        ssh_server_thread = threading.Thread(
-            target=sshserver.start_ssh_server, args=(username, passwd, args.port), daemon=True
-        )
-        ssh_server_thread.start()
+            ssh_server_thread = threading.Thread(
+                target=sshserver.start_ssh_server, args=(username, passwd, args.port), daemon=True
+            )
+            ssh_server_thread.start()
 
-        def signal_handler(signum, frame):
-            logger.info("Received sigint/sigterm. Stopping..")
-            logger.info("Waiting 5 seconds for discord thread to terminate")
-            discord_thread.join(5)
-            logger.info("Waiting 5 seconds for sftpserver thread to terminate")
-            ssh_server_thread.join(5)
-            sys.exit(0)
+            def signal_handler(signum, frame):
+                logger.info("Received sigint/sigterm. Stopping..")
+                if discord_thread.is_alive():
+                    logger.info("Waiting 2 seconds for discord thread to terminate")
+                    discord_thread.join(0.1)
+                if ssh_server_thread.is_alive():
+                    logger.info("Waiting 2 seconds for sftpserver thread to terminate")
+                    ssh_server_thread.join(0.1)
+                sys.exit(0)
 
-        signal.signal(signal.SIGINT, signal_handler)
+            signal.signal(signal.SIGINT, signal_handler)
 
-        while True:
-            logger.info("Hello from main loop!")
-            time.sleep(10)
+            # Start the interactive shell
+            logger.info("Starting interactive shell now !")
+
+            while True:
+                print("Hello from main thread!!")
+                time.sleep(10)
 
 
 if __name__ == "__main__":

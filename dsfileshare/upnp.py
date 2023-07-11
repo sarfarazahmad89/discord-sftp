@@ -1,4 +1,5 @@
 import logging
+import requests
 import subprocess
 import re
 import ipaddress
@@ -11,6 +12,11 @@ class UPNPForward:
         self.tcpport = tcpport
         self.public_ipaddr = None
 
+    def _get_pub_addr_ipinfo(self):
+        r = requests.get("https://ipinfo.io")
+        if r.ok:
+            return r.json()["ip"]
+
     def __enter__(self):
         cmd = "upnpc -i -r {} tcp".format(self.tcpport)
         logger.info("executing command {}".format(cmd.split()))
@@ -21,7 +27,10 @@ class UPNPForward:
             r = re.match(r"ExternalIPAddress = (.*)", line)
             if r:
                 self.public_ipaddr = r.groups()[0]
+        assert ipaddress.IPv4Address(self.public_ipaddr)
         assert self.public_ipaddr, "could not determine public ip address"
+        if self.public_ipaddr != self._get_pub_addr_ipinfo():
+            logger.warning("Public IPAddr does not match with ipinfo")
         logger.info("`add` request completed successfully")
         return self
 
