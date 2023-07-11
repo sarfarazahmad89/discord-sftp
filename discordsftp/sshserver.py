@@ -10,8 +10,8 @@ import logging
 from base64 import decodebytes
 from binascii import hexlify
 from paramiko.util import b, u
-import dsfileshare
-from dsfileshare.sftp import DSSFTPServerReadOnly
+import discordsftp
+from discordsftp.sftp import DSSFTPServerReadOnly
 
 logger = logging.getLogger(__name__)
 

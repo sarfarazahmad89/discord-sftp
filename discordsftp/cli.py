@@ -18,20 +18,20 @@ from tabulate import tabulate
 from datetime import datetime, timedelta
 from colorlog import ColoredFormatter
 from dataclasses import dataclass
-from dsfileshare.upnp import UPNPForward
+from discordsftp.upnp import UPNPForward
 from logging.handlers import RotatingFileHandler
 from discord.ext import tasks
 from pathlib import Path
-from dsfileshare import sshserver
+from discordsftp import sshserver
 from multiprocessing import Process
 
 from paramiko.client import SSHClient, AutoAddPolicy
 
 
 PASSLEN = 10
-USERNAME = "dsfileshare"
+USERNAME = "discordsftp"
 DISCORD_STATUS_PING_SEC = 30
-SERVER_MSG_PREFIX = "dsfileshare-hello"
+SERVER_MSG_PREFIX = "discordsftp-hello"
 
 logger = logging.getLogger(__name__)
 
@@ -143,7 +143,7 @@ def get_creds():
 
 def main():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    tokenfile = os.path.join(Path.home(), ".dsfilesharetoken")
+    tokenfile = os.path.join(Path.home(), ".discordsftptoken")
     parser.add_argument(
         "--channel",
         "-c",
