@@ -245,8 +245,7 @@ def main():
                     )
                     try:
                         self.ssh_c.connect(
-                            # self.remote_server_config["ip"],
-                            "localhost",
+                            self.remote_server_config["ip"],
                             self.remote_server_config["port"],
                             username=self.remote_server_config["username"],
                             password=self.remote_server_config["password"],
