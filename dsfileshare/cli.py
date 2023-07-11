@@ -301,8 +301,9 @@ def main():
 
 
                 def do_get(self, remote_file):
+                    remote_file = remote_file.strip('\'')
                     try:
-                        self.sftp_conn.get(remote_file, f'{remote_file}.d')
+                        self.sftp_conn.get(remote_file, remote_file)
                         print(f"{remote_file} downloaded successfully!")
                     except Exception:
                         print(f"Err - {remote_file} : incorrect filename or file no longer exists")
