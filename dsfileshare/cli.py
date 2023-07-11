@@ -25,7 +25,6 @@ from pathlib import Path
 from dsfileshare import sshserver
 from multiprocessing import Process
 
-from pprint import pprint
 from paramiko.client import SSHClient, AutoAddPolicy
 
 
