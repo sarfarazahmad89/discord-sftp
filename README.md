@@ -11,7 +11,7 @@ discord-sftp enables members of a discord channel to exchange file among themsel
 ### Requirements
 - See [setup.py](/setup.py) for dependencies.
 - You need to configure a discord bot that can read and publish messages on a specific text channel.
-- Hopefully UPnP forwarding is enabled in your router and this way SFTP server that is potentially running in a private can be forwarded all the way to the internet.
+- Hopefully UPnP forwarding is enabled in your router and this way SFTP server that is potentially running in a private networ, can be forwarded all the way to the internet.
 
 ### Limitations
 It is pretty much a hack/a proof of concept and serves my purposes. It is not very robust at the moment.
