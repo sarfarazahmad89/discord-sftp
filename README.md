@@ -39,4 +39,5 @@ Use the available commands to interact with the application:
 ```
 
 ## images
-1. ![listing peers and connecting to one](/images/list_peers.png?raw=true)
+1. listing peers and connecting to one
+ ![list_peers](/images/list_peers.png?raw=true)
