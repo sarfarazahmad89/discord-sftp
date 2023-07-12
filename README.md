@@ -36,6 +36,7 @@ Use the available commands to interact with the application:
    - `pwd`: Print the current directory on the connected peer.
    - `disconnect`: Disconnect from the connected peer.
    - `exit`: Exit the application.```
+```
 
 ## images
 1. ![listing peers and connecting to one](/images/list_peers.png?raw=true)
