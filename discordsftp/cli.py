@@ -319,7 +319,8 @@ def main():
                     cwd = self.sftp_conn.getcwd()
                     if not cwd:
                         print("/")
-                    print(cwd)
+                    else:
+                        print(cwd)
 
                 def do_cd(self, remote_dir):
                     remote_dir = _strip_quotes(remote_dir)
